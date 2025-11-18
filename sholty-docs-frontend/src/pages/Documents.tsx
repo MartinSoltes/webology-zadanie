@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { documentsApi } from "../api/documents";
+import { useState, useMemo } from "react";
+import TagSelect from "../components/TagSelect";
 
 interface DocumentItem {
   id: number;
@@ -12,15 +14,23 @@ interface DocumentItem {
 
 function Documents() {
   const queryClient = useQueryClient();
+  const [tag, setTag] = useState("");
 
   // Load documents using React Query
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents"],
+    queryKey: ["documents", tag],
     queryFn: async () => {
-      const res = await documentsApi.list();
+      const res = await documentsApi.list(tag || undefined);
       return res.data.data as DocumentItem[];
     },
   });
+
+  // Load tags
+  const tags = useMemo(() => {
+    return Array.from(
+      new Set((data ?? []).map(d => d.tag).filter(Boolean))
+    ) as string[];
+  }, [data]);
 
   const handleDownload = async (id: number, filename: string) => {
     const res = await documentsApi.download(id);
@@ -49,6 +59,25 @@ function Documents() {
           >
             + Add Document
           </Link>
+        </div>
+
+        {/* Filter */}
+        <div className="flex items-center gap-4 max-w-md">
+          <TagSelect
+            value={tag}
+            onChange={(val) => setTag(val)}
+            options={tags}
+            placeholder="Filter by tag"
+          />
+
+          {tag && (
+            <button
+              onClick={() => setTag("")}
+              className="px-3 py-2 bg-gray-300 rounded hover:bg-gray-400"
+            >
+              Reset
+            </button>
+          )}
         </div>
 
         {/* State handlers */}
