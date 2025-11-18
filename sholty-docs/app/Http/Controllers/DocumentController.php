@@ -77,4 +77,11 @@ class DocumentController extends Controller
         $document = Document::where('user_id', Auth::id())->findOrFail($id);
         return Storage::disk('public')->download($document->file_path);
     }
+
+    // GET /api/documents/{id}
+    public function show($id)
+    {
+        $document = Document::where('user_id', Auth::id())->findOrFail($id);
+        return response()->json($document);
+    }
 }
