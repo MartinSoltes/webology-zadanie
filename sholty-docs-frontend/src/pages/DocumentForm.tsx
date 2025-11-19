@@ -3,33 +3,41 @@ import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { documentsApi } from "../api/documents";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import TagInput from "../components/TagInput";
 
 function DocumentForm() {
   const navigate = useNavigate();
-  const { id } = useParams(); // if exists → edit mode
+  const { id } = useParams(); 
   const isEdit = Boolean(id);
 
   const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
-  const [tag, setTag] = useState("");
-  const [file, setFile] = useState<File | null>(null); // only for create
+  const [tags, setTags] = useState<string[]>([]);
+  const [file, setFile] = useState<File | null>(null);
 
-  // ---- LOAD DOC WHEN EDITING ----
+  // Fetch document when editing
   const { data: documentData, isLoading: loadingDoc } = useQuery({
     queryKey: ["document", id],
-    queryFn: () => documentsApi.get(Number(id)),
-    enabled: isEdit, // do not run on "new"
+    queryFn: () => documentsApi.get(Number(id)).then((res) => res.data),
+    enabled: isEdit,
   });
 
+  // Fetch all available tags for autocomplete
+  const { data: allTagsData } = useQuery({
+    queryKey: ["document-tags"],
+    queryFn: () => documentsApi.listTags().then((res) => res.data),
+  });
+
+  // Fill initial values for edit
   useEffect(() => {
-    if (documentData?.data) {
-      setName(documentData.data.name);
-      setTag(documentData.data.tag ?? "");
+    if (documentData) {
+      setName(documentData.name);
+      setTags(documentData.tags ?? []);
     }
   }, [documentData]);
 
-  // ---- CREATE ----
+  // CREATE mutation
   const createMutation = useMutation({
     mutationFn: (formData: FormData) => documentsApi.upload(formData),
     onSuccess: () => {
@@ -38,35 +46,42 @@ function DocumentForm() {
     },
   });
 
-  // ---- UPDATE ----
+  // UPDATE mutation
   const updateMutation = useMutation({
-    mutationFn: (payload: { id: number; name: string; tag: string }) =>
-      documentsApi.update(payload.id, { name: payload.name, tag: payload.tag }),
+    mutationFn: (payload: { id: number; name: string; tags: string[] }) =>
+      documentsApi.update(payload.id, { name: payload.name, tags: payload.tags }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       navigate("/documents");
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // SUBMIT
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isEdit && id) {
-      updateMutation.mutate({ id: Number(id), name, tag });
-      return;
+    if (isEdit) {
+      updateMutation.mutate({
+        id: Number(id),
+        name,
+        tags,
+      });
+    } else {
+      const form = new FormData();
+      form.append("name", name);
+      form.append("file", file!);
+      tags.forEach((t, i) => form.append(`tags[${i}]`, t));
+
+      createMutation.mutate(form);
     }
-
-    if (!file) return;
-
-    const form = new FormData();
-    form.append("name", name);
-    if (tag) form.append("tag", tag);
-    form.append("file", file);
-
-    createMutation.mutate(form);
   };
 
-  if (loadingDoc) return <Layout><p>Loading…</p></Layout>;
+  if (loadingDoc)
+    return (
+      <Layout>
+        <p>Loading…</p>
+      </Layout>
+    );
 
   return (
     <Layout>
@@ -76,6 +91,7 @@ function DocumentForm() {
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Name */}
           <input
             type="text"
             placeholder="Document name"
@@ -85,14 +101,14 @@ function DocumentForm() {
             required
           />
 
-          <input
-            type="text"
-            placeholder="Tag (optional)"
-            className="border p-2 w-full"
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
+          {/* Tags */}
+          <TagInput 
+            value={tags}
+            onChange={setTags}
+            allTags={allTagsData ?? []}
           />
 
+          {/* File input only when creating */}
           {!isEdit && (
             <input
               type="file"
@@ -119,11 +135,11 @@ function DocumentForm() {
               Cancel
             </button>
           </div>
-        </form>
 
-        {(createMutation.error || updateMutation.error) && (
-          <p className="text-red-600">Something went wrong.</p>
-        )}
+          {(createMutation.error || updateMutation.error) && (
+            <p className="text-red-600">Something went wrong.</p>
+          )}
+        </form>
       </div>
     </Layout>
   );

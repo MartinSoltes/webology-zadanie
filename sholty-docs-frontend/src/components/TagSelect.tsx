@@ -11,8 +11,10 @@ function TagSelect({ onChange, options, placeholder }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const filtered = options.filter(opt =>
-    opt.toLowerCase().includes(search.toLowerCase())
+  const filtered = options
+    .filter((o) => typeof o === "string" && o.trim().length > 0)  // <-- ochrana
+    .filter((o) => 
+      o.toLowerCase().includes(search.toLowerCase())
   );
 
   const selectValue = (val: string) => {
@@ -34,7 +36,7 @@ function TagSelect({ onChange, options, placeholder }: Props) {
       </div>
 
       {open && (
-        <div className="absolute z-10 w-full mt-1 bg-white border rounded shadow-lg">
+        <div className="absolute z-10 w-full mt-1 bg-white border rounded shadow-lg text-gray-900">
 
           <input
             type="text"

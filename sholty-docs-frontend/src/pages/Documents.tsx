@@ -8,15 +8,15 @@ import TagSelect from "../components/TagSelect";
 interface DocumentItem {
   id: number;
   name: string;
-  tag: string | null;
+  tags: string[];
   file_path: string;
 }
 
 function Documents() {
   const queryClient = useQueryClient();
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]); // active filters
 
-  // Query with multiple tags
+  // ---- LOAD DOCUMENTS WITH FILTERS ----
   const { data, isLoading, isError } = useQuery<DocumentItem[]>({
     queryKey: ["documents", tags],
     queryFn: async () => {
@@ -25,34 +25,45 @@ function Documents() {
     },
   });
 
-  // all tags for the dropdown
-  const { data: allTagsData } = useQuery<string[]>({
+  // ---- LOAD ALL TAGS FOR DROPDOWN ----
+  const { data: rawTagsData } = useQuery<string[]>({
     queryKey: ["document-tags"],
     queryFn: async () => {
       const res = await documentsApi.listTags();
-      return res.data as string[];
+      return res.data;
     },
   });
 
-  const allTags = allTagsData ?? [];
-  const availableTagOptions = allTags.filter(t => !tags.includes(t));
+  // Normalize all tags (remove null, empty, duplicates)
+  const allTags = useMemo(
+    () =>
+      (rawTagsData ?? [])
+        .filter((t): t is string => typeof t === "string")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0),
+    [rawTagsData]
+  );
 
+  const availableTagOptions = allTags.filter((t) => !tags.includes(t));
+
+  // ---- FILTER HANDLERS ----
   const addTagFilter = (tag: string) => {
-    if (!tags.includes(tag)) {
-      setTags(prev => [...prev, tag]);
+    if (tag && !tags.includes(tag)) {
+      setTags((prev) => [...prev, tag]);
     }
   };
 
   const removeTagFilter = (tag: string) => {
-    setTags(prev => prev.filter(t => t !== tag));
+    setTags((prev) => prev.filter((t) => t !== tag));
   };
 
   const clearFilters = () => setTags([]);
 
+  // ---- DOWNLOAD ----
   const handleDownload = async (id: number, filename: string) => {
     const res = await documentsApi.download(id);
     const blob = new Blob([res.data], {
-      type: res.headers["content-type"]
+      type: res.headers["content-type"],
     });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -62,6 +73,7 @@ function Documents() {
     window.URL.revokeObjectURL(url);
   };
 
+  // ---- DELETE ----
   const handleDelete = async (id: number) => {
     await documentsApi.remove(id);
     queryClient.invalidateQueries({ queryKey: ["documents"] });
@@ -82,10 +94,10 @@ function Documents() {
           </Link>
         </div>
 
-        {/* Filter row */}
+        {/* FILTER BAR */}
         <div className="space-y-3 max-w-xl">
-
-          {/* Dropdown filter */}
+          
+          {/* Tag dropdown */}
           <TagSelect
             value=""
             onChange={addTagFilter}
@@ -93,9 +105,9 @@ function Documents() {
             placeholder="Select tag"
           />
 
-          {/* Selected tag chips */}
+          {/* Active selected tags */}
           <div className="flex gap-2 flex-wrap">
-            {tags.map(tag => (
+            {tags.map((tag) => (
               <button
                 key={tag}
                 className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full border border-blue-300 hover:bg-blue-200"
@@ -116,17 +128,17 @@ function Documents() {
           </div>
         </div>
 
-        {/* Table state */}
+        {/* DATA STATES */}
         {isLoading && <p>Loading...</p>}
         {isError && <p className="text-red-600">Failed to load documents.</p>}
 
-        {/* Table */}
+        {/* TABLE */}
         {data && data.length > 0 ? (
           <table className="w-full border">
             <thead>
               <tr className="bg-gray-100 text-gray-700">
                 <th className="p-2 border text-left">Name</th>
-                <th className="p-2 border text-left">Tag</th>
+                <th className="p-2 border text-left">Tags</th>
                 <th className="p-2 border text-left">Actions</th>
               </tr>
             </thead>
@@ -135,7 +147,25 @@ function Documents() {
               {data.map((doc) => (
                 <tr key={doc.id}>
                   <td className="p-2 border">{doc.name}</td>
-                  <td className="p-2 border">{doc.tag || "-"}</td>
+                  
+                  {/* Show multiple tags */}
+                  <td className="p-2 border">
+                    {doc.tags && doc.tags.length > 0 ? (
+                      <div className="flex gap-1 flex-wrap">
+                        {doc.tags.map((t) => (
+                          <span
+                            key={t}
+                            className="bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-sm"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+
                   <td className="p-2 border flex gap-2">
                     <button
                       className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
@@ -164,9 +194,7 @@ function Documents() {
 
           </table>
         ) : (
-          !isLoading && (
-            <p className="text-gray-600">No documents found.</p>
-          )
+          !isLoading && <p className="text-gray-600">No documents found.</p>
         )}
       </div>
     </Layout>

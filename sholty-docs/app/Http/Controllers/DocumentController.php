@@ -12,16 +12,21 @@ class DocumentController extends Controller
     //GET /api/documents
     public function index(Request $request)
     {
-        $tagsParam = $request->query('tags'); // e.g. "invoice,finance"
-        $tags = $tagsParam ? explode(',', $tagsParam) : [];
+        $tags = $request->query('tags');
 
-        $documents = Document::where('user_id', Auth::id())
-            ->when(count($tags) > 0, function ($query) use ($tags) {
-                $query->whereIn('tag', $tags);
-            })
-            ->paginate(10);
+        $query = Document::where('user_id', Auth::id());
 
-        return response()->json($documents);
+        if ($tags) {
+            $tagArray = explode(',', $tags);
+
+            $query->where(function($q) use ($tagArray) {
+                foreach ($tagArray as $t) {
+                    $q->whereJsonContains('tags', $t);
+                }
+            });
+        }
+
+        return $query->paginate(10);
     }
 
     //POST /api/documents
@@ -29,7 +34,8 @@ class DocumentController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'tag' => 'nullable|string|max:100',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:100',
             'file' => 'required|file|max:10240', // max 10MB
         ]);
 
@@ -38,7 +44,7 @@ class DocumentController extends Controller
         $document = Document::create([
             'user_id' => Auth::id(),
             'name' => $request->name,
-            'tag' => $request->tag,
+            'tags' => $request->tags ?? [],
             'file_path' => $filePath,
         ]);
 
@@ -52,12 +58,13 @@ class DocumentController extends Controller
 
         $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'tag' => 'sometimes|nullable|string|max:100',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:100',
         ]);
 
         $document->update([
             'name' => $request->name,
-            'tag' => $request->tag
+            'tags' => $request->tags ?? [],
         ]);
 
         return response()->json($document);;
@@ -78,6 +85,11 @@ class DocumentController extends Controller
     public function download($id)
     {
         $document = Document::where('user_id', Auth::id())->findOrFail($id);
+
+        if (!Storage::disk('public')->exists($document->file_path)) {
+            return response()->json(['error' => 'File not found'], 404);
+        }
+
         return Storage::disk('public')->download($document->file_path);
     }
 
@@ -92,10 +104,11 @@ class DocumentController extends Controller
     public function tags()
     {
         $tags = Document::where('user_id', Auth::id())
-            ->whereNotNull('tag')
-            ->distinct()
-            ->pluck('tag')
-            ->values(); // pekné 0-based indexy
+            ->pluck('tags')      // zoberie zo všetkých dokumentov pole tagov
+            ->flatten()          // rozbalí na 1D array
+            ->filter()           // odstráni null a empty
+            ->unique()
+            ->values();
 
         return response()->json($tags);
     }

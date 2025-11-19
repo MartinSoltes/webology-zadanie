@@ -12,7 +12,11 @@ class Document extends Model
     protected $fillable = [
         'user_id',
         'name',
-        'tag',
+        'tags',
         'file_path',
+    ];
+
+    protected $casts = [
+        'tags' => 'array',
     ];
 }
