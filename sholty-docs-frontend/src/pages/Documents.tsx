@@ -1,8 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { documentsApi } from "../api/documents";
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import TagSelect from "../components/TagSelect";
 
 interface DocumentItem {
@@ -22,8 +22,15 @@ interface DocumentsResponse {
 
 function Documents() {
   const queryClient = useQueryClient();
-  const [tags, setTags] = useState<string[]>([]); // active filters
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTags = searchParams.get("tags")
+  ? searchParams.get("tags")!.split(",")
+  : [];
+
+const initialPage = Number(searchParams.get("page")) || 1;
+
+const [tags, setTags] = useState<string[]>(initialTags);
+const [page, setPage] = useState(initialPage);
 
   // ---- LOAD DOCUMENTS WITH FILTERS ----
   const { data, isLoading, isError } = useQuery<DocumentsResponse>({
@@ -67,16 +74,36 @@ function Documents() {
 
   // ---- FILTER HANDLERS ----
   const addTagFilter = (tag: string) => {
-    if (tag && !tags.includes(tag)) {
-      setTags((prev) => [...prev, tag]);
+  if (tag && !tags.includes(tag)) {
+      setPage(1); // novy filter -> vratime sa na stranu 1
+      setTags(prev => [...prev, tag]);
     }
   };
 
   const removeTagFilter = (tag: string) => {
-    setTags((prev) => prev.filter((t) => t !== tag));
+    setPage(1);
+    setTags(prev => prev.filter(t => t !== tag));
   };
 
-  const clearFilters = () => setTags([]);
+  const clearFilters = () => {
+    setTags([]);
+    setPage(1);
+  };
+
+  useEffect(() => {
+    const params: any = {};
+
+    if (tags.length > 0) {
+      params.tags = tags.join(",");
+    }
+
+    if (page > 1) {
+      params.page = page.toString();
+    }
+
+    setSearchParams(params);
+  }, [tags, page]);
+
 
   // ---- DOWNLOAD ----
   const handleDownload = async (id: number, filename: string) => {
@@ -221,7 +248,7 @@ function Documents() {
           <div className="flex items-center gap-4 mt-4">
             <button
               disabled={meta.current_page === 1}
-              onClick={() => setPage(meta.current_page - 1)}
+              onClick={() => setPage(p => p - 1)}
               className="px-3 py-2 bg-gray-200 rounded disabled:opacity-50"
             >
               Prev
@@ -233,7 +260,7 @@ function Documents() {
 
             <button
               disabled={meta.current_page === meta.last_page}
-              onClick={() => setPage(meta.current_page + 1)}
+              onClick={() => setPage(p => p + 1)}
               className="px-3 py-2 bg-gray-200 rounded disabled:opacity-50"
             >
               Next
