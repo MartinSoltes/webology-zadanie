@@ -12,10 +12,13 @@ class DocumentController extends Controller
     //GET /api/documents
     public function index(Request $request)
     {
-        $tag = $request->query('tag');
+        $tagsParam = $request->query('tags'); // e.g. "invoice,finance"
+        $tags = $tagsParam ? explode(',', $tagsParam) : [];
 
         $documents = Document::where('user_id', Auth::id())
-            ->when($tag, fn($query) => $query->where('tag', $tag))
+            ->when(count($tags) > 0, function ($query) use ($tags) {
+                $query->whereIn('tag', $tags);
+            })
             ->paginate(10);
 
         return response()->json($documents);
@@ -84,4 +87,17 @@ class DocumentController extends Controller
         $document = Document::where('user_id', Auth::id())->findOrFail($id);
         return response()->json($document);
     }
+
+    // GET /api/documents-tags
+    public function tags()
+    {
+        $tags = Document::where('user_id', Auth::id())
+            ->whereNotNull('tag')
+            ->distinct()
+            ->pluck('tag')
+            ->values(); // pekné 0-based indexy
+
+        return response()->json($tags);
+    }
+
 }

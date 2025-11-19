@@ -14,31 +14,52 @@ interface DocumentItem {
 
 function Documents() {
   const queryClient = useQueryClient();
-  const [tag, setTag] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
 
-  // Load documents using React Query
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", tag],
+  // Query with multiple tags
+  const { data, isLoading, isError } = useQuery<DocumentItem[]>({
+    queryKey: ["documents", tags],
     queryFn: async () => {
-      const res = await documentsApi.list(tag || undefined);
-      return res.data.data as DocumentItem[];
+      const res = await documentsApi.list(tags);
+      return res.data.data;
     },
   });
 
-  // Load tags
-  const tags = useMemo(() => {
-    return Array.from(
-      new Set((data ?? []).map(d => d.tag).filter(Boolean))
-    ) as string[];
-  }, [data]);
+  // all tags for the dropdown
+  const { data: allTagsData } = useQuery<string[]>({
+    queryKey: ["document-tags"],
+    queryFn: async () => {
+      const res = await documentsApi.listTags();
+      return res.data as string[];
+    },
+  });
+
+  const allTags = allTagsData ?? [];
+  const availableTagOptions = allTags.filter(t => !tags.includes(t));
+
+  const addTagFilter = (tag: string) => {
+    if (!tags.includes(tag)) {
+      setTags(prev => [...prev, tag]);
+    }
+  };
+
+  const removeTagFilter = (tag: string) => {
+    setTags(prev => prev.filter(t => t !== tag));
+  };
+
+  const clearFilters = () => setTags([]);
 
   const handleDownload = async (id: number, filename: string) => {
     const res = await documentsApi.download(id);
-    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const blob = new Blob([res.data], {
+      type: res.headers["content-type"]
+    });
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   const handleDelete = async (id: number) => {
@@ -61,26 +82,41 @@ function Documents() {
           </Link>
         </div>
 
-        {/* Filter */}
-        <div className="flex items-center gap-4 max-w-md">
+        {/* Filter row */}
+        <div className="space-y-3 max-w-xl">
+
+          {/* Dropdown filter */}
           <TagSelect
-            value={tag}
-            onChange={(val) => setTag(val)}
-            options={tags}
-            placeholder="Filter by tag"
+            value=""
+            onChange={addTagFilter}
+            options={availableTagOptions}
+            placeholder="Select tag"
           />
 
-          {tag && (
-            <button
-              onClick={() => setTag("")}
-              className="px-3 py-2 bg-gray-300 rounded hover:bg-gray-400"
-            >
-              Reset
-            </button>
-          )}
+          {/* Selected tag chips */}
+          <div className="flex gap-2 flex-wrap">
+            {tags.map(tag => (
+              <button
+                key={tag}
+                className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full border border-blue-300 hover:bg-blue-200"
+                onClick={() => removeTagFilter(tag)}
+              >
+                {tag} ✕
+              </button>
+            ))}
+
+            {tags.length > 0 && (
+              <button
+                onClick={clearFilters}
+                className="bg-gray-300 text-gray-700 px-3 py-1 rounded-full hover:bg-gray-400"
+              >
+                Reset all
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* State handlers */}
+        {/* Table state */}
         {isLoading && <p>Loading...</p>}
         {isError && <p className="text-red-600">Failed to load documents.</p>}
 
@@ -129,7 +165,7 @@ function Documents() {
           </table>
         ) : (
           !isLoading && (
-            <p className="text-gray-600">No documents available yet.</p>
+            <p className="text-gray-600">No documents found.</p>
           )
         )}
       </div>

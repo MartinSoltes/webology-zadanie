@@ -7,7 +7,7 @@ interface Props {
   placeholder?: string;
 }
 
-function TagSelect({ value, onChange, options, placeholder }: Props) {
+function TagSelect({ onChange, options, placeholder }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -15,10 +15,10 @@ function TagSelect({ value, onChange, options, placeholder }: Props) {
     opt.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleSelect = (val: string) => {
+  const selectValue = (val: string) => {
     onChange(val);
-    setOpen(false);
     setSearch("");
+    setOpen(false);
   };
 
   return (
@@ -28,19 +28,20 @@ function TagSelect({ value, onChange, options, placeholder }: Props) {
         onClick={() => setOpen(!open)}
       >
         <span className="text-gray-800">
-          {value || placeholder || "Select tag"}
+          {placeholder || "Select tag"}
         </span>
         <span className="text-gray-500">▾</span>
       </div>
 
       {open && (
-        <div className="absolute z-10 w-full mt-1 bg-gray-950 border rounded shadow-lg">
+        <div className="absolute z-10 w-full mt-1 bg-white border rounded shadow-lg">
+
           <input
             type="text"
             className="p-2 border-b w-full focus:outline-none"
             placeholder="Search..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
 
           <div className="max-h-40 overflow-y-auto">
@@ -49,7 +50,7 @@ function TagSelect({ value, onChange, options, placeholder }: Props) {
                 <button
                   key={opt}
                   className="block w-full text-left px-3 py-2 hover:bg-gray-100"
-                  onClick={() => handleSelect(opt)}
+                  onClick={() => selectValue(opt)}
                 >
                   {opt}
                 </button>
@@ -57,13 +58,6 @@ function TagSelect({ value, onChange, options, placeholder }: Props) {
             ) : (
               <p className="text-gray-500 p-2 text-sm">No results</p>
             )}
-
-            <button
-              className="block w-full text-left px-3 py-2 hover:bg-gray-100"
-              onClick={() => handleSelect("")}
-            >
-              Show all documents
-            </button>
           </div>
         </div>
       )}

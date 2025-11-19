@@ -14,4 +14,5 @@ Route::middleware('auth:api')->group(function () {
     Route::put('/documents/{id}', [DocumentController::class, 'update']);
     Route::delete('/documents/{id}', [DocumentController::class, 'destroy']);
     Route::get('/documents/{id}/download', [DocumentController::class, 'download']);
+    Route::get('/documents-tags', [DocumentController::class, 'tags']);
 });
