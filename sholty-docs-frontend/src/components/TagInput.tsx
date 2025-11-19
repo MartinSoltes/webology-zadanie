@@ -12,39 +12,37 @@ export default function TagInput({ value, onChange, allTags }: TagInputProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const suggestions = (allTags ?? [])
-    .filter((t): t is string => typeof t === "string" && t.trim().length > 0) // vyhodí null/undefined/empty
-    .filter((t) =>
-        t.toLowerCase().includes(input.toLowerCase())
-    )
+    .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+    .filter((t) => t.toLowerCase().includes(input.toLowerCase()))
     .filter((t) => !value.includes(t));
 
-  // Add tag
+  // Pridanie tagu
   const addTag = (tag: string) => {
-    if (!tag.trim()) return;
-    if (value.includes(tag)) return;
-    onChange([...value, tag]);
+    const cleaned = tag.trim();
+    if (!cleaned) return;
+    if (value.includes(cleaned)) return;
+    onChange([...value, cleaned]);
     setInput("");
     setFocusedIndex(0);
   };
 
-  // Remove tag
+  // Odstránenie tagu
   const removeTag = (tag: string) => {
     onChange(value.filter((t) => t !== tag));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Confirm: enter, tab, comma
+    // Enter, Tab, čiarka → potvrdiť tag
     if (["Enter", "Tab", ","].includes(e.key)) {
       e.preventDefault();
 
-      if (suggestions.length > 0 && input.trim()) {
-        addTag(suggestions[0]);
-      } else {
+      if (input.trim()) {
+        // ak je niečo napísané, berieme priamo input
         addTag(input);
       }
     }
 
-    // Navigation in suggestions
+    // navigácia v suggestionoch
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setFocusedIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
@@ -53,11 +51,23 @@ export default function TagInput({ value, onChange, allTags }: TagInputProps) {
       e.preventDefault();
       setFocusedIndex((prev) => Math.max(prev - 1, 0));
     }
+
+    // spätné mazanie posledného tagu, keď je input prázdny
+    if (e.key === "Backspace" && input === "" && value.length > 0) {
+      e.preventDefault();
+      onChange(value.slice(0, -1));
+    }
+  };
+
+  const handleBlur = () => {
+    if (input.trim().length > 0) {
+      addTag(input);
+    }
   };
 
   return (
     <div className="space-y-2 relative">
-      {/* Selected tags */}
+      {/* Vybraté tagy */}
       <div className="flex gap-2 flex-wrap">
         {value.map((tag) => (
           <div
@@ -66,6 +76,7 @@ export default function TagInput({ value, onChange, allTags }: TagInputProps) {
           >
             {tag}
             <button
+              type="button"
               onClick={() => removeTag(tag)}
               className="text-blue-700 hover:text-blue-900"
             >
@@ -75,20 +86,21 @@ export default function TagInput({ value, onChange, allTags }: TagInputProps) {
         ))}
       </div>
 
-      {/* Tag input */}
+      {/* Input */}
       <input
         className="border p-2 w-full rounded"
         placeholder="Write tag..."
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
       />
 
       {/* Suggestion dropdown */}
       {input.length > 0 && suggestions.length > 0 && (
         <div
           ref={listRef}
-          className="absolute z-10 mt-1 bg-white border rounded shadow w-full"
+          className="absolute z-10 mt-1 bg-white border rounded shadow w-full text-gray-900 max-h-40 overflow-y-auto"
         >
           {suggestions.map((tag, index) => (
             <div
@@ -96,7 +108,11 @@ export default function TagInput({ value, onChange, allTags }: TagInputProps) {
               className={`px-3 py-2 cursor-pointer ${
                 index === focusedIndex ? "bg-blue-100" : ""
               }`}
-              onClick={() => addTag(tag)}
+              // onMouseDown namiesto onClick, aby sme zastavili blur
+              onMouseDown={(e) => {
+                e.preventDefault(); // zabráni blur inputu
+                addTag(tag);
+              }}
             >
               {tag}
             </div>
