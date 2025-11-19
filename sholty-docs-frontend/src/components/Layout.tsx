@@ -19,7 +19,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           Logout
         </button>
       </nav>
-      <main className="p-6">{children}</main>
+      <main className="p-0 md:p-6">{children}</main>
     </div>
   );
 }

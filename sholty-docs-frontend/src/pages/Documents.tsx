@@ -212,7 +212,7 @@ const [page, setPage] = useState(initialPage);
                     )}
                   </td>
 
-                  <td className="p-2 border flex gap-2">
+                  <td className="p-2 border flex flex-wrap gap-2">
                     <button
                       className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
                       onClick={() => handleDownload(doc.id, doc.name)}
@@ -249,7 +249,7 @@ const [page, setPage] = useState(initialPage);
             <button
               disabled={meta.current_page === 1}
               onClick={() => setPage(p => p - 1)}
-              className="px-3 py-2 bg-gray-200 rounded disabled:opacity-50"
+              className="px-3 py-2 bg-gray-200 rounded disabled:opacity-50 text-gray-700 cursor-pointer"
             >
               Prev
             </button>
@@ -261,7 +261,7 @@ const [page, setPage] = useState(initialPage);
             <button
               disabled={meta.current_page === meta.last_page}
               onClick={() => setPage(p => p + 1)}
-              className="px-3 py-2 bg-gray-200 rounded disabled:opacity-50"
+              className="px-3 py-2 bg-gray-200 rounded disabled:opacity-50 text-gray-700 cursor-pointer"
             >
               Next
             </button>
