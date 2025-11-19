@@ -12,18 +12,37 @@ interface DocumentItem {
   file_path: string;
 }
 
+interface DocumentsResponse {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  data: DocumentItem[];
+}
+
 function Documents() {
   const queryClient = useQueryClient();
   const [tags, setTags] = useState<string[]>([]); // active filters
+  const [page, setPage] = useState(1);
 
   // ---- LOAD DOCUMENTS WITH FILTERS ----
-  const { data, isLoading, isError } = useQuery<DocumentItem[]>({
-    queryKey: ["documents", tags],
+  const { data, isLoading, isError } = useQuery<DocumentsResponse>({
+    queryKey: ["documents", tags, page],
     queryFn: async () => {
-      const res = await documentsApi.list(tags);
-      return res.data.data;
+      const res = await documentsApi.list(tags, page);
+      return res.data; // vraciame cely objekt
     },
   });
+
+  const documents = data?.data ?? [];
+  const meta = data
+  ? {
+      current_page: data.current_page,
+      last_page: data.last_page,
+      per_page: data.per_page,
+      total: data.total,
+    }
+  : null;
 
   // ---- LOAD ALL TAGS FOR DROPDOWN ----
   const { data: rawTagsData } = useQuery<string[]>({
@@ -133,7 +152,7 @@ function Documents() {
         {isError && <p className="text-red-600">Failed to load documents.</p>}
 
         {/* TABLE */}
-        {data && data.length > 0 ? (
+        {documents && documents.length > 0 ? (
           <table className="w-full border">
             <thead>
               <tr className="bg-gray-100 text-gray-700">
@@ -144,7 +163,7 @@ function Documents() {
             </thead>
 
             <tbody>
-              {data.map((doc) => (
+              {documents.map((doc) => (
                 <tr key={doc.id}>
                   <td className="p-2 border">{doc.name}</td>
                   
@@ -195,6 +214,31 @@ function Documents() {
           </table>
         ) : (
           !isLoading && <p className="text-gray-600">No documents found.</p>
+        )}
+
+        {/* PAGINATION */}
+        {meta && (
+          <div className="flex items-center gap-4 mt-4">
+            <button
+              disabled={meta.current_page === 1}
+              onClick={() => setPage(meta.current_page - 1)}
+              className="px-3 py-2 bg-gray-200 rounded disabled:opacity-50"
+            >
+              Prev
+            </button>
+
+            <span>
+              Page {meta.current_page} / {meta.last_page}
+            </span>
+
+            <button
+              disabled={meta.current_page === meta.last_page}
+              onClick={() => setPage(meta.current_page + 1)}
+              className="px-3 py-2 bg-gray-200 rounded disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
         )}
       </div>
     </Layout>
